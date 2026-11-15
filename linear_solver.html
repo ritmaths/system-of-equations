@@ -1,0 +1,1915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Linear Systems Numerical Solver & Visualizer</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js for 3D Plane Intersection Visualization -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom Matrix Brackets & Academic Styling */
+    .matrix-wrapper {
+      display: inline-flex;
+      align-items: stretch;
+      position: relative;
+      padding: 4px 10px;
+      margin: 4px 0;
+      background: rgba(248, 250, 252, 0.8);
+      border-radius: 6px;
+    }
+    .matrix-wrapper::before,
+    .matrix-wrapper::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      bottom: 2px;
+      width: 7px;
+      border: 2px solid #334155;
+    }
+    .matrix-wrapper::before {
+      left: 2px;
+      border-right: none;
+      border-top-left-radius: 4px;
+      border-bottom-left-radius: 4px;
+    }
+    .matrix-wrapper::after {
+      right: 2px;
+      border-left: none;
+      border-top-right-radius: 4px;
+      border-bottom-right-radius: 4px;
+    }
+    .aug-divider {
+      border-left: 2px dashed #94a3b8;
+      padding-left: 12px !important;
+      margin-left: 4px;
+    }
+    /* Custom Scrollbar for wide matrices or tables */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    /* Remove number input arrows for cleaner equation boxes */
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center font-mono font-bold text-lg shadow-sm">
+          Ax=b
+        </div>
+        <div>
+          <h1 class="text-xl font-bold text-slate-900 tracking-tight">Linear Systems Numerical Solver</h1>
+          <p class="text-xs text-slate-500">Step-by-step Elimination, Iterative & Decomposition Engine with 2D/3D Geometry</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="headerStatusBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+          <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+          Step 1: Configure Method & Dimensions
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Grid -->
+  <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- STEP 1: Method Selection & Dimensions Configuration -->
+    <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-4 border-b border-slate-100">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-brand-600">Step 1</span>
+          <h2 class="text-lg font-bold text-slate-900">Select Method & System Dimensions</h2>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" onclick="loadPresetExample('2d')" class="text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+            Load 2×2 Example
+          </button>
+          <button type="button" onclick="loadPresetExample('3d')" class="text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+            Load 3×3 Example
+          </button>
+          <button type="button" onclick="loadPresetExample('4d')" class="text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+            Load 4×4 Example
+          </button>
+        </div>
+      </div>
+
+      <!-- Method Cards -->
+      <div class="mt-4">
+        <label class="block text-sm font-semibold text-slate-700 mb-2.5">1. Choose Numerical Method</label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" id="methodSelectorGrid">
+          <button type="button" data-method="gauss" onclick="selectMethod('gauss')"
+            class="method-card text-left p-3.5 rounded-xl border-2 border-brand-600 bg-brand-50/60 transition-all">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-sm text-slate-900">Gauss Elimination</span>
+              <span class="w-4 h-4 rounded-full border-4 border-brand-600 bg-white check-dot"></span>
+            </div>
+            <p class="text-xs text-slate-600 mt-1">Row Echelon Form (REF) via elementary row operations + Back Substitution.</p>
+          </button>
+
+          <button type="button" data-method="jordan" onclick="selectMethod('jordan')"
+            class="method-card text-left p-3.5 rounded-xl border-2 border-slate-200 hover:border-slate-300 bg-white transition-all">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-sm text-slate-900">Gauss-Jordan</span>
+              <span class="w-4 h-4 rounded-full border-2 border-slate-300 bg-white check-dot"></span>
+            </div>
+            <p class="text-xs text-slate-600 mt-1">Reduced Row Echelon Form (RREF) eliminating above & below pivots.</p>
+          </button>
+
+          <button type="button" data-method="jacobi" onclick="selectMethod('jacobi')"
+            class="method-card text-left p-3.5 rounded-xl border-2 border-slate-200 hover:border-slate-300 bg-white transition-all">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-sm text-slate-900">Jacobi Iteration</span>
+              <span class="w-4 h-4 rounded-full border-2 border-slate-300 bg-white check-dot"></span>
+            </div>
+            <p class="text-xs text-slate-600 mt-1">Iterative fixed-point solver; converges best on diagonally dominant matrices.</p>
+          </button>
+
+          <button type="button" data-method="lu" onclick="selectMethod('lu')"
+            class="method-card text-left p-3.5 rounded-xl border-2 border-slate-200 hover:border-slate-300 bg-white transition-all">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-sm text-slate-900">LU Decomposition</span>
+              <span class="w-4 h-4 rounded-full border-2 border-slate-300 bg-white check-dot"></span>
+            </div>
+            <p class="text-xs text-slate-600 mt-1">Doolittle factorization <span class="font-mono">A = L·U</span>, followed by forward & back substitution.</p>
+          </button>
+        </div>
+      </div>
+
+      <!-- Dimension Inputs & Validation -->
+      <div class="mt-5 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+        <div class="md:col-span-3">
+          <label for="numEquations" class="block text-sm font-semibold text-slate-700 mb-1">
+            Number of Equations (<span class="font-mono">m</span>)
+          </label>
+          <input type="number" id="numEquations" min="2" max="6" value="3" oninput="validateAndBuildEquations(false)"
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition" />
+        </div>
+
+        <div class="md:col-span-3">
+          <label for="numUnknowns" class="block text-sm font-semibold text-slate-700 mb-1">
+            Number of Unknowns (<span class="font-mono">n</span>)
+          </label>
+          <input type="number" id="numUnknowns" min="2" max="6" value="3" oninput="validateAndBuildEquations(false)"
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition" />
+        </div>
+
+        <div class="md:col-span-6 flex flex-wrap items-center gap-3">
+          <button type="button" onclick="validateAndBuildEquations(true)"
+            class="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm shadow-sm transition flex items-center gap-2">
+            <span>Set Equations Matrix</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+          </button>
+          <span class="text-xs text-slate-500">Supported range: <span class="font-mono font-semibold">2 ≤ m, n ≤ 6</span></span>
+        </div>
+      </div>
+
+      <!-- Condition Validation Alert Box -->
+      <div id="conditionAlert" class="hidden mt-4 p-4 rounded-xl border text-sm"></div>
+    </section>
+
+    <!-- STEP 2: Coefficient Entry Form -->
+    <section id="equationInputSection" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 transition-all">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-brand-600">Step 2</span>
+          <h2 class="text-lg font-bold text-slate-900">Enter System Coefficients</h2>
+          <p class="text-xs text-slate-500 mt-0.5">Fill in the boxes <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded">[ ]</span> for each variable coefficient and right-hand constant.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="clearInputs()" class="text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition">
+            Clear All to 0
+          </button>
+          <button type="button" onclick="randomizeDiagonallyDominant()" class="text-xs font-medium px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition">
+            Random Valid System
+          </button>
+        </div>
+      </div>
+
+      <!-- Dynamic Equation Rows: []x_1 + []x_2 + ... = [] -->
+      <div class="mt-5 overflow-x-auto pb-2">
+        <div id="equationsContainer" class="space-y-3 min-w-max"></div>
+      </div>
+
+      <!-- Jacobi Specific Options (Shown only when Jacobi is selected) -->
+      <div id="jacobiOptionsPanel" class="hidden mt-5 pt-4 border-t border-slate-100 bg-slate-50/80 p-4 rounded-xl">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+          <h3 class="text-sm font-bold text-slate-800">Jacobi Iteration Parameters</h3>
+          <span id="diagDominanceBadge" class="text-xs font-semibold px-2.5 py-1 rounded-full"></span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Tolerance (ε)</label>
+            <input type="number" id="jacobiTol" value="0.0001" step="0.0001" min="0.0000001"
+              class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-mono text-sm focus:ring-2 focus:ring-brand-500 outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Max Iterations</label>
+            <input type="number" id="jacobiMaxIter" value="25" min="1" max="200"
+              class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-mono text-sm focus:ring-2 focus:ring-brand-500 outline-none" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Initial Guess Vector <span class="font-mono">x⁽⁰⁾</span></label>
+            <div id="jacobiInitialGuessContainer" class="flex flex-wrap gap-2"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Solve Trigger Button -->
+      <div class="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4">
+        <div class="text-xs text-slate-500">
+          Active Method: <span id="activeMethodLabel" class="font-bold text-slate-800">Gauss Elimination</span>
+        </div>
+        <button type="button" onclick="solveSystem()"
+          class="w-full sm:w-auto px-7 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          <span>Solve System & Show Steps</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- STEP 3: Results, Graphical Visualization & Step-by-Step Explanation -->
+    <div id="resultsWrapper" class="hidden space-y-6">
+
+      <!-- Top Summary & Graphical Plot Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Final Solution Vector & Verification Card -->
+        <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <span class="text-xs font-bold uppercase tracking-wider text-emerald-600">Final Output</span>
+                <h2 class="text-lg font-bold text-slate-900">Solution Vector</h2>
+              </div>
+              <span id="solutionStatusPill" class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                Unique Solution
+              </span>
+            </div>
+
+            <!-- Solution Values List -->
+            <div id="finalSolutionContent" class="mt-4 space-y-2.5"></div>
+          </div>
+
+          <!-- Residual Check A*x = b -->
+          <div id="verificationBox" class="mt-6 pt-4 border-t border-slate-100">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Verification (<span class="font-mono">A·x ≈ b</span>)</h3>
+            <div id="verificationList" class="space-y-1 text-xs font-mono text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-200/70"></div>
+          </div>
+        </div>
+
+        <!-- Graphical Output Card (2D / 3D / >3D Notice) -->
+        <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 flex flex-col">
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-brand-600">Geometric View</span>
+              <h2 id="graphTitle" class="text-lg font-bold text-slate-900">Graphical Visualization</h2>
+            </div>
+            <div id="graphControls" class="flex items-center gap-2"></div>
+          </div>
+
+          <!-- Container for 2D Canvas, 3D WebGL Canvas, or >=4D Notice -->
+          <div id="graphViewportContainer" class="mt-4 flex-grow min-h-[340px] relative rounded-xl border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center">
+            <!-- Populated dynamically -->
+          </div>
+
+          <!-- Legend / Interaction Hint -->
+          <div id="graphFooter" class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500"></div>
+        </div>
+      </div>
+
+      <!-- Detailed Step-by-Step Mathematical Derivation -->
+      <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-brand-600">Derivation Log</span>
+            <h2 id="stepsHeading" class="text-lg font-bold text-slate-900">Step-by-Step Operations & Explanation</h2>
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 cursor-pointer bg-slate-100 px-3 py-1.5 rounded-lg">
+              <input type="checkbox" id="fractionToggle" checked onchange="reRenderLastSolution()" class="rounded text-brand-600 focus:ring-brand-500">
+              <span>Show Exact Fractions when clean</span>
+            </label>
+          </div>
+        </div>
+
+        <div id="stepsContainer" class="mt-5 space-y-5"></div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <footer class="bg-white border-t border-slate-200 py-4 mt-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-500">
+      Numerical Linear Algebra Educational Tool • Supports Gauss Elimination, Gauss-Jordan, Jacobi Iteration & Doolittle LU Decomposition
+    </div>
+  </footer>
+
+  <script>
+    // ============================================================================
+    // APPLICATION STATE & CONFIGURATION
+    // ============================================================================
+    const state = {
+      method: 'gauss', // 'gauss' | 'jordan' | 'jacobi' | 'lu'
+      m: 3,            // number of equations
+      n: 3,            // number of unknowns
+      isValidCondition: true,
+      lastResult: null,
+      // 2D Plot camera state
+      plot2D: {
+        scale: 40,
+        offsetX: 0,
+        offsetY: 0,
+        isDragging: false,
+        lastX: 0,
+        lastY: 0
+      },
+      // 3D Scene state
+      scene3D: {
+        renderer: null,
+        scene: null,
+        camera: null,
+        animId: null,
+        isDragging: false,
+        prevMouse: { x: 0, y: 0 },
+        spherical: { radius: 14, theta: Math.PI / 4, phi: Math.PI / 3 }
+      }
+    };
+
+    const EPSILON = 1e-10;
+    const EQUATION_COLORS = ['#4f46e5', '#e11d48', '#059669', '#d97706', '#7c3aed', '#0284c7'];
+
+    // ============================================================================
+    // NUMBER FORMATTING UTILITIES (Exact Fractions & Clean Decimals)
+    // ============================================================================
+    function toFraction(val, maxDenom = 1000) {
+      if (Math.abs(val) < EPSILON) return '0';
+      if (Number.isInteger(Math.round(val * 1e9) / 1e9)) {
+        return String(Math.round(val));
+      }
+      const sign = val < 0 ? -1 : 1;
+      val = Math.abs(val);
+      let h1 = 1, h2 = 0, k1 = 0, k2 = 1;
+      let b = val;
+      do {
+        let a = Math.floor(b);
+        let aux = h1; h1 = a * h1 + h2; h2 = aux;
+        aux = k1; k1 = a * k1 + k2; k2 = aux;
+        b = 1 / (b - a);
+      } while (Math.abs(val - h1 / k1) > val * 1e-7 && k1 <= maxDenom && isFinite(b));
+
+      if (k1 <= maxDenom && Math.abs(val - h1 / k1) < 1e-7) {
+        return k1 === 1 ? `${sign * h1}` : `${sign * h1}/${k1}`;
+      }
+      return null;
+    }
+
+    function fmtNum(val, forceDecimal = false) {
+      if (val === undefined || val === null || isNaN(val)) return 'NaN';
+      if (!isFinite(val)) return val > 0 ? '∞' : '-∞';
+      if (Math.abs(val) < EPSILON) return '0';
+
+      const useFractions = document.getElementById('fractionToggle')?.checked && !forceDecimal;
+      if (useFractions) {
+        const frac = toFraction(val, 250);
+        if (frac !== null) return frac;
+      }
+      // Clean decimal formatting up to 4 decimal places without trailing zeros
+      return Number(val.toFixed(4)).toString();
+    }
+
+    // ============================================================================
+    // STEP 1: METHOD SELECTION & DIMENSION CONDITION VALIDATION
+    // ============================================================================
+    function selectMethod(methodKey) {
+      state.method = methodKey;
+
+      // Update UI cards
+      document.querySelectorAll('.method-card').forEach(card => {
+        const isSelected = card.dataset.method === methodKey;
+        const dot = card.querySelector('.check-dot');
+        if (isSelected) {
+          card.classList.remove('border-slate-200', 'bg-white');
+          card.classList.add('border-brand-600', 'bg-brand-50/60');
+          dot.classList.remove('border-2', 'border-slate-300');
+          dot.classList.add('border-4', 'border-brand-600');
+        } else {
+          card.classList.add('border-slate-200', 'bg-white');
+          card.classList.remove('border-brand-600', 'bg-brand-50/60');
+          dot.classList.add('border-2', 'border-slate-300');
+          dot.classList.remove('border-4', 'border-brand-600');
+        }
+      });
+
+      const methodNames = {
+        gauss: 'Gauss Elimination',
+        jordan: 'Gauss-Jordan Elimination',
+        jacobi: 'Jacobi Iteration',
+        lu: 'LU Decomposition (Doolittle)'
+      };
+      document.getElementById('activeMethodLabel').textContent = methodNames[methodKey];
+
+      validateAndBuildEquations(false);
+    }
+
+    function validateAndBuildEquations(userTriggered) {
+      const mInput = parseInt(document.getElementById('numEquations').value, 10);
+      const nInput = parseInt(document.getElementById('numUnknowns').value, 10);
+      const alertBox = document.getElementById('conditionAlert');
+      const eqSection = document.getElementById('equationInputSection');
+      const jacobiPanel = document.getElementById('jacobiOptionsPanel');
+
+      // Basic bounds check
+      if (isNaN(mInput) || isNaN(nInput) || mInput < 2 || mInput > 6 || nInput < 2 || nInput > 6) {
+        state.isValidCondition = false;
+        alertBox.className = 'mt-4 p-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 text-sm flex items-start gap-3';
+        alertBox.innerHTML = `
+          <svg class="w-5 h-5 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div>
+            <p class="font-bold">Invalid Dimensions</p>
+            <p class="text-xs mt-0.5">Please enter between <strong>2 and 6</strong> for both the number of equations (<span class="font-mono">m</span>) and unknowns (<span class="font-mono">n</span>).</p>
+          </div>
+        `;
+        eqSection.classList.add('opacity-40', 'pointer-events-none');
+        return;
+      }
+
+      // Method-specific condition checks
+      let errorMsg = '';
+      if ((state.method === 'jacobi' || state.method === 'lu') && mInput !== nInput) {
+        const methodName = state.method === 'jacobi' ? 'Jacobi Iteration' : 'LU Decomposition';
+        errorMsg = `<strong>Condition Not Satisfied for ${methodName}:</strong> You entered <span class="font-mono">${mInput}</span> equations and <span class="font-mono">${nInput}</span> unknowns (<span class="font-mono">${mInput}×${nInput}</span>). ${methodName} requires a <strong>square coefficient matrix</strong> where the number of equations equals the number of unknowns (<span class="font-mono">m = n</span>).`;
+      }
+
+      if (errorMsg) {
+        state.isValidCondition = false;
+        alertBox.className = 'mt-4 p-4 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 text-sm flex items-start gap-3';
+        alertBox.innerHTML = `
+          <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          <div>
+            <p>${errorMsg}</p>
+            <p class="text-xs text-amber-700 mt-1">Adjust <span class="font-mono">m</span> and <span class="font-mono">n</span> to be equal, or switch to Gauss / Gauss-Jordan Elimination.</p>
+          </div>
+        `;
+        eqSection.classList.add('opacity-40', 'pointer-events-none');
+        document.getElementById('resultsWrapper').classList.add('hidden');
+        return;
+      }
+
+      // Condition Satisfied!
+      state.isValidCondition = true;
+      const dimsChanged = (state.m !== mInput || state.n !== nInput);
+      state.m = mInput;
+      state.n = nInput;
+
+      alertBox.className = 'mt-4 p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-900 text-xs flex items-center justify-between gap-2';
+      alertBox.innerHTML = `
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          <span><strong>Condition Satisfied:</strong> Configured a <span class="font-mono font-bold">${state.m} × ${state.n}</span> system (${state.m} equations, ${state.n} unknowns). Enter coefficients below.</span>
+        </div>
+        <span class="font-mono text-emerald-700 hidden sm:inline">${state.n < 4 ? '2D/3D Graph Enabled' : 'Matrix Output Mode'}</span>
+      `;
+
+      eqSection.classList.remove('opacity-40', 'pointer-events-none');
+      document.getElementById('headerStatusBadge').innerHTML = `
+        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        Step 2: Enter ${state.m}×${state.n} Coefficients
+      `;
+
+      if (dimsChanged || userTriggered || document.getElementById('equationsContainer').children.length === 0) {
+        renderEquationInputs();
+      }
+
+      // Toggle Jacobi panel
+      if (state.method === 'jacobi') {
+        jacobiPanel.classList.remove('hidden');
+        renderJacobiInitialGuessInputs();
+        checkDiagonalDominanceUI();
+      } else {
+        jacobiPanel.classList.add('hidden');
+      }
+    }
+
+    // ============================================================================
+    // STEP 2: DYNAMIC EQUATION INPUT RENDERING ([]x_1 + []x_2 + ... = [])
+    // ============================================================================
+    function renderEquationInputs(presetA = null, presetB = null) {
+      const container = document.getElementById('equationsContainer');
+      container.innerHTML = '';
+
+      // Default pleasant 3x3 or m x n values if no preset passed
+      const default3x3A = [
+        [4, -1, 1],
+        [2, 5, 2],
+        [1, 2, 4]
+      ];
+      const default3x3B = [8, 3, 11];
+
+      for (let i = 0; i < state.m; i++) {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'flex items-center gap-1.5 bg-slate-50/70 px-3 py-2 rounded-xl border border-slate-200/80';
+
+        // Equation index badge
+        const eqTag = document.createElement('span');
+        eqTag.className = 'text-xs font-mono font-semibold text-slate-400 mr-2 select-none w-7';
+        eqTag.textContent = `E${i + 1}:`;
+        rowDiv.appendChild(eqTag);
+
+        for (let j = 0; j < state.n; j++) {
+          // Coefficient input box [ ]
+          const input = document.createElement('input');
+          input.type = 'number';
+          input.step = 'any';
+          input.id = `a_${i}_${j}`;
+          input.placeholder = '0';
+          input.setAttribute('aria-label', `Equation ${i + 1} coefficient for x${j + 1}`);
+          input.className = 'w-16 sm:w-20 px-2 py-1.5 text-center font-mono text-sm font-semibold bg-white border-2 border-slate-300 rounded-lg focus:border-brand-600 focus:ring-2 focus:ring-brand-200 outline-none transition shadow-2xs';
+          input.oninput = () => {
+            if (state.method === 'jacobi') checkDiagonalDominanceUI();
+          };
+
+          if (presetA && presetA[i] && presetA[i][j] !== undefined) {
+            input.value = presetA[i][j];
+          } else if (!presetA && state.m === 3 && state.n === 3) {
+            input.value = default3x3A[i][j];
+          } else if (!presetA) {
+            // Generate a clean diagonally dominant default for any dimension
+            input.value = (i === j) ? (state.n + 2) : ((i + j) % 2 === 0 ? 1 : -1);
+          }
+
+          rowDiv.appendChild(input);
+
+          // Variable label x_j
+          const varSpan = document.createElement('span');
+          varSpan.className = 'font-mono text-sm font-semibold text-slate-700 select-none';
+          varSpan.innerHTML = `x<sub>${j + 1}</sub>`;
+          rowDiv.appendChild(varSpan);
+
+          // Plus sign between terms
+          if (j < state.n - 1) {
+            const plusSpan = document.createElement('span');
+            plusSpan.className = 'font-mono text-sm font-bold text-slate-400 mx-1 select-none';
+            plusSpan.textContent = '+';
+            rowDiv.appendChild(plusSpan);
+          }
+        }
+
+        // Equals sign '='
+        const eqSign = document.createElement('span');
+        eqSign.className = 'font-mono text-base font-bold text-brand-600 mx-2 select-none';
+        eqSign.textContent = '=';
+        rowDiv.appendChild(eqSign);
+
+        // Constant term input box [ ]
+        const bInput = document.createElement('input');
+        bInput.type = 'number';
+        bInput.step = 'any';
+        bInput.id = `b_${i}`;
+        bInput.placeholder = '0';
+        bInput.setAttribute('aria-label', `Equation ${i + 1} right-hand constant`);
+        bInput.className = 'w-16 sm:w-20 px-2 py-1.5 text-center font-mono text-sm font-bold bg-indigo-50/50 border-2 border-indigo-300 rounded-lg focus:border-brand-600 focus:ring-2 focus:ring-brand-200 outline-none transition';
+
+        if (presetB && presetB[i] !== undefined) {
+          bInput.value = presetB[i];
+        } else if (!presetB && state.m === 3 && state.n === 3) {
+          bInput.value = default3x3B[i];
+        } else if (!presetB) {
+          bInput.value = (i + 1) * 5;
+        }
+
+        rowDiv.appendChild(bInput);
+        container.appendChild(rowDiv);
+      }
+
+      if (state.method === 'jacobi') {
+        renderJacobiInitialGuessInputs();
+        checkDiagonalDominanceUI();
+      }
+    }
+
+    function renderJacobiInitialGuessInputs() {
+      const container = document.getElementById('jacobiInitialGuessContainer');
+      container.innerHTML = '';
+      for (let j = 0; j < state.n; j++) {
+        const wrap = document.createElement('div');
+        wrap.className = 'flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-300';
+        wrap.innerHTML = `<span class="font-mono text-xs text-slate-500">x<sub>${j + 1}</sub>⁽⁰⁾=</span>`;
+        const inp = document.createElement('input');
+        inp.type = 'number';
+        inp.step = 'any';
+        inp.id = `x0_${j}`;
+        inp.value = '0';
+        inp.className = 'w-12 font-mono text-xs font-semibold text-center outline-none';
+        wrap.appendChild(inp);
+        container.appendChild(wrap);
+      }
+    }
+
+    function readMatrixInputs() {
+      const A = [];
+      const b = [];
+      for (let i = 0; i < state.m; i++) {
+        const row = [];
+        for (let j = 0; j < state.n; j++) {
+          const val = parseFloat(document.getElementById(`a_${i}_${j}`).value);
+          row.push(isNaN(val) ? 0 : val);
+        }
+        A.push(row);
+        const bVal = parseFloat(document.getElementById(`b_${i}`).value);
+        b.push(isNaN(bVal) ? 0 : bVal);
+      }
+      return { A, b };
+    }
+
+    function checkDiagonalDominance(A) {
+      let strictCount = 0;
+      let isWeaklyDominant = true;
+      const details = [];
+      for (let i = 0; i < A.length; i++) {
+        const diag = Math.abs(A[i][i]);
+        let offSum = 0;
+        for (let j = 0; j < A[i].length; j++) {
+          if (i !== j) offSum += Math.abs(A[i][j]);
+        }
+        const ok = diag > offSum;
+        const weakOk = diag >= offSum;
+        if (ok) strictCount++;
+        if (!weakOk) isWeaklyDominant = false;
+        details.push({ row: i + 1, diag, offSum, strict: ok });
+      }
+      return {
+        isStrictlyDominant: strictCount === A.length,
+        isWeaklyDominant,
+        details
+      };
+    }
+
+    function checkDiagonalDominanceUI() {
+      const { A } = readMatrixInputs();
+      const badge = document.getElementById('diagDominanceBadge');
+      if (!badge) return;
+      const dom = checkDiagonalDominance(A);
+      if (dom.isStrictlyDominant) {
+        badge.className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800';
+        badge.textContent = '✓ Strictly Diagonally Dominant (Guaranteed Convergence)';
+      } else {
+        badge.className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800';
+        badge.textContent = '⚠ Not Strictly Diagonally Dominant (May Diverge)';
+      }
+    }
+
+    function clearInputs() {
+      for (let i = 0; i < state.m; i++) {
+        for (let j = 0; j < state.n; j++) {
+          const el = document.getElementById(`a_${i}_${j}`);
+          if (el) el.value = 0;
+        }
+        const bEl = document.getElementById(`b_${i}`);
+        if (bEl) bEl.value = 0;
+      }
+      if (state.method === 'jacobi') checkDiagonalDominanceUI();
+    }
+
+    function randomizeDiagonallyDominant() {
+      const A = [];
+      const trueX = [];
+      for (let j = 0; j < state.n; j++) {
+        trueX.push(Math.floor(Math.random() * 7) - 3 || 2); // non-zero integer solution
+      }
+      for (let i = 0; i < state.m; i++) {
+        const row = [];
+        let offSum = 0;
+        for (let j = 0; j < state.n; j++) {
+          if (i !== j) {
+            const v = Math.floor(Math.random() * 7) - 3;
+            row.push(v);
+            offSum += Math.abs(v);
+          } else {
+            row.push(0);
+          }
+        }
+        if (i < state.n) {
+          const sign = Math.random() > 0.3 ? 1 : -1;
+          row[i] = sign * (offSum + Math.floor(Math.random() * 4) + 1);
+        }
+        A.push(row);
+      }
+      const b = A.map(row => row.reduce((acc, val, idx) => acc + val * trueX[idx], 0));
+      renderEquationInputs(A, b);
+    }
+
+    function loadPresetExample(type) {
+      if (type === '2d') {
+        document.getElementById('numEquations').value = 2;
+        document.getElementById('numUnknowns').value = 2;
+        validateAndBuildEquations(false);
+        renderEquationInputs(
+          [[3, 1], [1, 2]],
+          [9, 8]
+        ); // Solution: x1 = 2, x2 = 3
+      } else if (type === '3d') {
+        document.getElementById('numEquations').value = 3;
+        document.getElementById('numUnknowns').value = 3;
+        validateAndBuildEquations(false);
+        renderEquationInputs(
+          [[4, -1, 1], [2, 5, 2], [1, 2, 4]],
+          [8, 3, 11]
+        ); // Solution: x1 = 1, x2 = -1, x3 = 3
+      } else if (type === '4d') {
+        document.getElementById('numEquations').value = 4;
+        document.getElementById('numUnknowns').value = 4;
+        validateAndBuildEquations(false);
+        renderEquationInputs(
+          [
+            [10, -1, 2, 0],
+            [-1, 11, -1, 3],
+            [2, -1, 10, -1],
+            [0, 3, -1, 8]
+          ],
+          [6, 25, -11, 15]
+        ); // Solution: x1 = 1, x2 = 2, x3 = -1, x4 = 1
+      }
+    }
+
+    // ============================================================================
+    // HTML MATRIX & EQUATION RENDERING HELPERS
+    // ============================================================================
+    function renderAugmentedMatrixHTML(aug, numVars, highlightRow = -1, pivotPos = null) {
+      let html = `<div class="overflow-x-auto"><div class="matrix-wrapper font-mono text-xs sm:text-sm">`;
+      html += `<table class="border-collapse">`;
+      for (let i = 0; i < aug.length; i++) {
+        const isRowHighlight = (i === highlightRow);
+        html += `<tr class="${isRowHighlight ? 'bg-indigo-100/80 rounded' : ''}">`;
+        for (let j = 0; j < aug[i].length; j++) {
+          const isAugCol = (j === numVars);
+          const isPivot = (pivotPos && pivotPos.r === i && pivotPos.c === j);
+          const cellClasses = [
+            'px-2.5 py-1 text-right whitespace-nowrap',
+            isAugCol ? 'aug-divider font-semibold text-brand-700' : 'text-slate-800',
+            isPivot ? 'bg-amber-200/80 font-bold text-amber-950 rounded' : ''
+          ].join(' ');
+          html += `<td class="${cellClasses}">${fmtNum(aug[i][j])}</td>`;
+        }
+        html += `</tr>`;
+      }
+      html += `</table></div></div>`;
+      return html;
+    }
+
+    function renderSingleMatrixHTML(mat, label = '') {
+      let html = `<div class="inline-flex flex-col items-center">`;
+      if (label) {
+        html += `<span class="text-xs font-mono font-bold text-slate-600 mb-1">${label}</span>`;
+      }
+      html += `<div class="matrix-wrapper font-mono text-xs sm:text-sm"><table class="border-collapse">`;
+      for (let i = 0; i < mat.length; i++) {
+        html += `<tr>`;
+        for (let j = 0; j < mat[i].length; j++) {
+          html += `<td class="px-2.5 py-1 text-right whitespace-nowrap text-slate-800">${fmtNum(mat[i][j])}</td>`;
+        }
+        html += `</tr>`;
+      }
+      html += `</table></div></div>`;
+      return html;
+    }
+
+    function cloneMatrix(M) {
+      return M.map(row => [...row]);
+    }
+
+    // ============================================================================
+    // NUMERICAL SOLVER 1: GAUSS ELIMINATION
+    // ============================================================================
+    function solveGaussElimination(A, b) {
+      const m = A.length;
+      const n = A[0].length;
+      const aug = A.map((row, i) => [...row, b[i]]);
+      const steps = [];
+
+      steps.push({
+        title: 'Initial Augmented Matrix [A | b]',
+        description: 'Construct the augmented matrix by appending the constant vector b to the coefficient matrix A.',
+        matrixHTML: renderAugmentedMatrixHTML(aug, n)
+      });
+
+      let pivotRow = 0;
+      const pivotCols = [];
+
+      for (let col = 0; col < n && pivotRow < m; col++) {
+        // Partial pivoting: find row with largest absolute value in current column
+        let maxRow = pivotRow;
+        for (let r = pivotRow + 1; r < m; r++) {
+          if (Math.abs(aug[r][col]) > Math.abs(aug[maxRow][col])) {
+            maxRow = r;
+          }
+        }
+
+        if (Math.abs(aug[maxRow][col]) < EPSILON) {
+          steps.push({
+            title: `Column ${col + 1}: Zero Pivot Column`,
+            description: `All entries at or below row ${pivotRow + 1} in column ${col + 1} are zero. Moving to next variable column.`,
+            matrixHTML: null
+          });
+          continue;
+        }
+
+        // Swap rows if needed
+        if (maxRow !== pivotRow) {
+          [aug[pivotRow], aug[maxRow]] = [aug[maxRow], aug[pivotRow]];
+          steps.push({
+            title: `Row Swap (Partial Pivoting): R${pivotRow + 1} ↔ R${maxRow + 1}`,
+            description: `Swap row ${pivotRow + 1} and row ${maxRow + 1} to place the largest magnitude pivot (${fmtNum(aug[pivotRow][col])}) on the diagonal for numerical stability.`,
+            matrixHTML: renderAugmentedMatrixHTML(aug, n, pivotRow, { r: pivotRow, c: col })
+          });
+        }
+
+        // Eliminate entries below pivot
+        const ops = [];
+        for (let r = pivotRow + 1; r < m; r++) {
+          const factor = aug[r][col] / aug[pivotRow][col];
+          if (Math.abs(factor) > EPSILON) {
+            for (let c = col; c <= n; c++) {
+              aug[r][c] -= factor * aug[pivotRow][c];
+              if (Math.abs(aug[r][c]) < EPSILON) aug[r][c] = 0;
+            }
+            const signStr = factor >= 0 ? `- (${fmtNum(factor)})` : `+ (${fmtNum(-factor)})`;
+            ops.push(`R<sub>${r + 1}</sub> ← R<sub>${r + 1}</sub> ${signStr}·R<sub>${pivotRow + 1}</sub>`);
+          }
+        }
+
+        if (ops.length > 0) {
+          steps.push({
+            title: `Forward Elimination (Pivot at R${pivotRow + 1}, C${col + 1})`,
+            description: `Eliminate entries below pivot ${fmtNum(aug[pivotRow][col])}: <br><span class="font-mono text-xs text-brand-700 font-semibold">${ops.join(' &nbsp;|&nbsp; ')}</span>`,
+            matrixHTML: renderAugmentedMatrixHTML(aug, n, -1, { r: pivotRow, c: col })
+          });
+        }
+
+        pivotCols.push({ r: pivotRow, c: col });
+        pivotRow++;
+      }
+
+      steps.push({
+        title: 'Row Echelon Form (Upper Triangular Matrix)',
+        description: 'Forward elimination is complete. The matrix is now in Row Echelon Form.',
+        matrixHTML: renderAugmentedMatrixHTML(aug, n)
+      });
+
+      // Check consistency (Inconsistent if [0 0 ... 0 | non-zero])
+      for (let r = 0; r < m; r++) {
+        let allZero = true;
+        for (let c = 0; c < n; c++) {
+          if (Math.abs(aug[r][c]) > EPSILON) {
+            allZero = false;
+            break;
+          }
+        }
+        if (allZero && Math.abs(aug[r][n]) > EPSILON) {
+          steps.push({
+            title: 'Inconsistency Detected (No Solution)',
+            description: `Row ${r + 1} reduces to <span class="font-mono font-bold text-rose-700">0 = ${fmtNum(aug[r][n])}</span>, which is a contradiction. The system has no solution.`,
+            matrixHTML: renderAugmentedMatrixHTML(aug, n, r)
+          });
+          return { status: 'none', solution: null, steps };
+        }
+      }
+
+      // Check rank vs unknowns
+      const rank = pivotCols.length;
+      if (rank < n) {
+        steps.push({
+          title: 'Underdetermined System (Infinitely Many Solutions)',
+          description: `Rank of matrix (${rank}) is less than the number of unknowns (${n}). There are ${n - rank} free variable(s), yielding infinitely many solutions.`,
+          matrixHTML: null
+        });
+        return { status: 'infinite', solution: null, steps };
+      }
+
+      // Back Substitution
+      const x = new Array(n).fill(0);
+      const backSubLines = [];
+      for (let i = n - 1; i >= 0; i--) {
+        let sum = aug[i][n];
+        let exprParts = [`${fmtNum(aug[i][n])}`];
+        for (let j = i + 1; j < n; j++) {
+          sum -= aug[i][j] * x[j];
+          if (Math.abs(aug[i][j]) > EPSILON) {
+            exprParts.push(`- (${fmtNum(aug[i][j])})(${fmtNum(x[j])})`);
+          }
+        }
+        x[i] = sum / aug[i][i];
+        if (Math.abs(x[i]) < EPSILON) x[i] = 0;
+        backSubLines.push(
+          `x<sub>${i + 1}</sub> = [ ${exprParts.join(' ')} ] / (${fmtNum(aug[i][i])}) = <strong class="text-emerald-700">${fmtNum(x[i])}</strong>`
+        );
+      }
+
+      steps.push({
+        title: 'Back Substitution',
+        description: `Solve from the bottom equation upwards:<div class="mt-2 space-y-1.5 font-mono text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">${backSubLines.join('<br>')}</div>`,
+        matrixHTML: null
+      });
+
+      return { status: 'unique', solution: x, steps };
+    }
+
+    // ============================================================================
+    // NUMERICAL SOLVER 2: GAUSS-JORDAN ELIMINATION
+    // ============================================================================
+    function solveGaussJordan(A, b) {
+      const m = A.length;
+      const n = A[0].length;
+      const aug = A.map((row, i) => [...row, b[i]]);
+      const steps = [];
+
+      steps.push({
+        title: 'Initial Augmented Matrix [A | b]',
+        description: 'Start with the augmented matrix [A | b] to transform it into Reduced Row Echelon Form (RREF).',
+        matrixHTML: renderAugmentedMatrixHTML(aug, n)
+      });
+
+      let pivotRow = 0;
+      const pivotCols = [];
+
+      for (let col = 0; col < n && pivotRow < m; col++) {
+        let maxRow = pivotRow;
+        for (let r = pivotRow + 1; r < m; r++) {
+          if (Math.abs(aug[r][col]) > Math.abs(aug[maxRow][col])) {
+            maxRow = r;
+          }
+        }
+
+        if (Math.abs(aug[maxRow][col]) < EPSILON) continue;
+
+        if (maxRow !== pivotRow) {
+          [aug[pivotRow], aug[maxRow]] = [aug[maxRow], aug[pivotRow]];
+          steps.push({
+            title: `Row Swap: R${pivotRow + 1} ↔ R${maxRow + 1}`,
+            description: `Swap row ${pivotRow + 1} and row ${maxRow + 1} to bring non-zero pivot into position.`,
+            matrixHTML: renderAugmentedMatrixHTML(aug, n, pivotRow, { r: pivotRow, c: col })
+          });
+        }
+
+        // Normalize pivot row so pivot becomes 1
+        const pivotVal = aug[pivotRow][col];
+        if (Math.abs(pivotVal - 1) > EPSILON) {
+          for (let c = col; c <= n; c++) {
+            aug[pivotRow][c] /= pivotVal;
+            if (Math.abs(aug[pivotRow][c]) < EPSILON) aug[pivotRow][c] = 0;
+          }
+          steps.push({
+            title: `Normalize Pivot Row R${pivotRow + 1}`,
+            description: `Scale row ${pivotRow + 1} to make leading pivot equal to 1: <span class="font-mono text-xs text-brand-700 font-semibold">R<sub>${pivotRow + 1}</sub> ← R<sub>${pivotRow + 1}</sub> / (${fmtNum(pivotVal)})</span>`,
+            matrixHTML: renderAugmentedMatrixHTML(aug, n, pivotRow, { r: pivotRow, c: col })
+          });
+        }
+
+        // Eliminate ALL other entries in column (both above and below pivot)
+        const ops = [];
+        for (let r = 0; r < m; r++) {
+          if (r !== pivotRow) {
+            const factor = aug[r][col];
+            if (Math.abs(factor) > EPSILON) {
+              for (let c = col; c <= n; c++) {
+                aug[r][c] -= factor * aug[pivotRow][c];
+                if (Math.abs(aug[r][c]) < EPSILON) aug[r][c] = 0;
+              }
+              const signStr = factor >= 0 ? `- (${fmtNum(factor)})` : `+ (${fmtNum(-factor)})`;
+              ops.push(`R<sub>${r + 1}</sub> ← R<sub>${r + 1}</sub> ${signStr}·R<sub>${pivotRow + 1}</sub>`);
+            }
+          }
+        }
+
+        if (ops.length > 0) {
+          steps.push({
+            title: `Eliminate Above & Below Pivot (Column ${col + 1})`,
+            description: `Zero out all other entries in column ${col + 1}: <br><span class="font-mono text-xs text-brand-700 font-semibold">${ops.join(' &nbsp;|&nbsp; ')}</span>`,
+            matrixHTML: renderAugmentedMatrixHTML(aug, n, -1, { r: pivotRow, c: col })
+          });
+        }
+
+        pivotCols.push({ r: pivotRow, c: col });
+        pivotRow++;
+      }
+
+      steps.push({
+        title: 'Reduced Row Echelon Form (RREF)',
+        description: 'Every leading entry is 1 and is the only non-zero entry in its column.',
+        matrixHTML: renderAugmentedMatrixHTML(aug, n)
+      });
+
+      // Check inconsistency
+      for (let r = 0; r < m; r++) {
+        let allZero = true;
+        for (let c = 0; c < n; c++) {
+          if (Math.abs(aug[r][c]) > EPSILON) {
+            allZero = false;
+            break;
+          }
+        }
+        if (allZero && Math.abs(aug[r][n]) > EPSILON) {
+          steps.push({
+            title: 'Inconsistent System (No Solution)',
+            description: `Row ${r + 1} shows <span class="font-mono font-bold text-rose-700">0 = ${fmtNum(aug[r][n])}</span>. No solution exists.`,
+            matrixHTML: renderAugmentedMatrixHTML(aug, n, r)
+          });
+          return { status: 'none', solution: null, steps };
+        }
+      }
+
+      if (pivotCols.length < n) {
+        steps.push({
+          title: 'Infinitely Many Solutions',
+          description: `Rank (${pivotCols.length}) < Number of unknowns (${n}). Free variables exist.`,
+          matrixHTML: null
+        });
+        return { status: 'infinite', solution: null, steps };
+      }
+
+      const x = new Array(n).fill(0);
+      const readLines = [];
+      for (let i = 0; i < n; i++) {
+        x[i] = aug[i][n];
+        readLines.push(`x<sub>${i + 1}</sub> = <strong class="text-emerald-700">${fmtNum(x[i])}</strong>`);
+      }
+
+      steps.push({
+        title: 'Direct Solution Readout from RREF',
+        description: `Since the left side is the Identity Matrix <span class="font-mono">I</span>, the solution is read directly from the right-hand column:<div class="mt-2 font-mono text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">${readLines.join(' &nbsp;&nbsp;|&nbsp;&nbsp; ')}</div>`,
+        matrixHTML: null
+      });
+
+      return { status: 'unique', solution: x, steps };
+    }
+
+    // ============================================================================
+    // NUMERICAL SOLVER 3: JACOBI ITERATIVE METHOD
+    // ============================================================================
+    function solveJacobi(A, b) {
+      const n = A.length;
+      const tol = parseFloat(document.getElementById('jacobiTol').value) || 0.0001;
+      const maxIter = parseInt(document.getElementById('jacobiMaxIter').value, 10) || 25;
+      const x0 = [];
+      for (let j = 0; j < n; j++) {
+        const val = parseFloat(document.getElementById(`x0_${j}`)?.value);
+        x0.push(isNaN(val) ? 0 : val);
+      }
+
+      const steps = [];
+
+      // Check zero diagonal elements
+      for (let i = 0; i < n; i++) {
+        if (Math.abs(A[i][i]) < EPSILON) {
+          steps.push({
+            title: 'Zero Diagonal Element Error',
+            description: `Diagonal entry <span class="font-mono font-bold">a<sub>${i + 1}${i + 1}</sub> = 0</span>. Jacobi iteration divides by diagonal entries and cannot proceed without reordering equations.`,
+            matrixHTML: null
+          });
+          return { status: 'error', errorMsg: `Zero diagonal entry at row ${i + 1}. Reorder equations so diagonal entries are non-zero.`, steps };
+        }
+      }
+
+      // Step 1: Diagonal dominance check
+      const dom = checkDiagonalDominance(A);
+      const domLines = dom.details.map(d =>
+        `Row ${d.row}: |a<sub>${d.row}${d.row}</sub>| = ${fmtNum(d.diag)} ${d.strict ? '>' : '≤'} ∑|a<sub>${d.row}j</sub>| = ${fmtNum(d.offSum)} (${d.strict ? '<span class="text-emerald-700 font-semibold">Strict ✓</span>' : '<span class="text-amber-700 font-semibold">Not strict ⚠</span>'})`
+      );
+      steps.push({
+        title: 'Diagonal Dominance Check',
+        description: `Jacobi iteration is guaranteed to converge if the matrix is strictly diagonally dominant (<span class="font-mono">|aᵢᵢ| > ∑<sub>j≠i</sub> |aᵢⱼ|</span>):<div class="mt-2 font-mono text-xs bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">${domLines.join('<br>')}</div>`,
+        matrixHTML: null
+      });
+
+      // Step 2: Iterative Formulas
+      const formulaLines = [];
+      for (let i = 0; i < n; i++) {
+        const terms = [`${fmtNum(b[i])}`];
+        for (let j = 0; j < n; j++) {
+          if (i !== j && Math.abs(A[i][j]) > EPSILON) {
+            const sign = A[i][j] >= 0 ? '-' : '+';
+            terms.push(`${sign} ${fmtNum(Math.abs(A[i][j]))}·x<sub>${j + 1}</sub><sup>(k)</sup>`);
+          }
+        }
+        formulaLines.push(`x<sub>${i + 1}</sub><sup>(k+1)</sup> = ( ${terms.join(' ')} ) / ${fmtNum(A[i][i])}`);
+      }
+
+      steps.push({
+        title: 'Jacobi Iteration Update Equations',
+        description: `Isolate each variable <span class="font-mono">xᵢ</span> on the left-hand side:<div class="mt-2 font-mono text-xs bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5">${formulaLines.join('<br>')}</div>`,
+        matrixHTML: null
+      });
+
+      // Step 3: Execute Iterations
+      let xCurr = [...x0];
+      const history = [{ k: 0, x: [...xCurr], error: null }];
+      let converged = false;
+      let diverged = false;
+
+      for (let k = 1; k <= maxIter; k++) {
+        const xNext = new Array(n).fill(0);
+        for (let i = 0; i < n; i++) {
+          let sigma = 0;
+          for (let j = 0; j < n; j++) {
+            if (i !== j) {
+              sigma += A[i][j] * xCurr[j];
+            }
+          }
+          xNext[i] = (b[i] - sigma) / A[i][i];
+        }
+
+        let maxErr = 0;
+        for (let i = 0; i < n; i++) {
+          const diff = Math.abs(xNext[i] - xCurr[i]);
+          if (diff > maxErr) maxErr = diff;
+        }
+
+        history.push({ k, x: [...xNext], error: maxErr });
+        xCurr = xNext;
+
+        if (!isFinite(maxErr) || maxErr > 1e12) {
+          diverged = true;
+          break;
+        }
+        if (maxErr < tol) {
+          converged = true;
+          break;
+        }
+      }
+
+      // Build HTML Table for Iteration Log
+      let tableHTML = `<div class="overflow-x-auto max-h-96 border border-slate-200 rounded-xl"><table class="min-w-full divide-y divide-slate-200 font-mono text-xs">
+        <thead class="bg-slate-100 sticky top-0">
+          <tr>
+            <th class="px-3 py-2 text-left font-bold text-slate-700">Iter (k)</th>`;
+      for (let j = 0; j < n; j++) {
+        tableHTML += `<th class="px-3 py-2 text-right font-bold text-slate-700">x<sub>${j + 1}</sub><sup>(k)</sup></th>`;
+      }
+      tableHTML += `<th class="px-3 py-2 text-right font-bold text-brand-700">Max Error ||x<sup>(k)</sup> - x<sup>(k-1)</sup>||<sub>∞</sub></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 bg-white">`;
+
+      history.forEach((row, idx) => {
+        const isLast = idx === history.length - 1;
+        tableHTML += `<tr class="${isLast && converged ? 'bg-emerald-50/80 font-semibold' : ''}">
+          <td class="px-3 py-1.5 text-slate-600">${row.k}</td>`;
+        row.x.forEach(val => {
+          tableHTML += `<td class="px-3 py-1.5 text-right text-slate-800">${Number(val.toFixed(6))}</td>`;
+        });
+        tableHTML += `<td class="px-3 py-1.5 text-right ${row.error !== null && row.error < tol ? 'text-emerald-700 font-bold' : 'text-slate-600'}">
+          ${row.error === null ? '—' : row.error.toExponential(3)}
+        </td></tr>`;
+      });
+
+      tableHTML += `</tbody></table></div>`;
+
+      const statusText = converged
+        ? `Converged to tolerance <span class="font-mono">ε = ${tol}</span> in <strong>${history.length - 1}</strong> iterations.`
+        : diverged
+          ? `<span class="text-rose-700 font-bold">Method diverged!</span> Values grew unbounded because the matrix is not diagonally dominant.`
+          : `<span class="text-amber-700 font-bold">Reached maximum iterations (${maxIter})</span> without reaching tolerance <span class="font-mono">${tol}</span>.`;
+
+      steps.push({
+        title: 'Iteration Table',
+        description: statusText,
+        customHTML: tableHTML
+      });
+
+      if (diverged) {
+        return { status: 'error', errorMsg: 'Jacobi Iteration diverged. Try reordering rows for diagonal dominance or use Gauss Elimination.', steps };
+      }
+
+      return {
+        status: converged ? 'unique' : 'approx',
+        solution: xCurr,
+        steps
+      };
+    }
+
+    // ============================================================================
+    // NUMERICAL SOLVER 4: LU DECOMPOSITION (DOOLITTLE'S METHOD: A = L * U)
+    // ============================================================================
+    function solveLUDecomposition(A, b) {
+      const n = A.length;
+      const L = Array.from({ length: n }, (_, i) =>
+        Array.from({ length: n }, (__, j) => (i === j ? 1 : 0))
+      );
+      const U = cloneMatrix(A);
+      const steps = [];
+
+      steps.push({
+        title: 'Initialize L (Unit Lower Triangular) and U = A',
+        description: 'Doolittle’s method factors <span class="font-mono">A = L · U</span> where <span class="font-mono">L</span> has 1s on its main diagonal and <span class="font-mono">U</span> is upper triangular.',
+        customHTML: `<div class="flex flex-wrap gap-6 items-center">${renderSingleMatrixHTML(L, 'L (Initial)')}${renderSingleMatrixHTML(U, 'U (Initial = A)')}</div>`
+      });
+
+      // Elimination to form U and store multipliers in L
+      for (let k = 0; k < n - 1; k++) {
+        if (Math.abs(U[k][k]) < EPSILON) {
+          steps.push({
+            title: `Zero Pivot Encountered at U[${k + 1}][${k + 1}]`,
+            description: `Standard <span class="font-mono">A = L·U</span> decomposition without permutation matrix <span class="font-mono">P</span> cannot divide by zero pivot <span class="font-mono">u<sub>${k + 1}${k + 1}</sub> = 0</span>. Use Gauss Elimination with partial pivoting or reorder rows.`,
+            matrixHTML: null
+          });
+          return { status: 'error', errorMsg: `Zero pivot encountered at row ${k + 1} during LU factorization without pivoting.`, steps };
+        }
+
+        const multLogs = [];
+        for (let i = k + 1; i < n; i++) {
+          const factor = U[i][k] / U[k][k];
+          L[i][k] = factor;
+          for (let j = k; j < n; j++) {
+            U[i][j] -= factor * U[k][j];
+            if (Math.abs(U[i][j]) < EPSILON) U[i][j] = 0;
+          }
+          multLogs.push(`l<sub>${i + 1}${k + 1}</sub> = ${fmtNum(factor)} &nbsp;(R<sub>${i + 1}</sub> ← R<sub>${i + 1}</sub> - (${fmtNum(factor)})R<sub>${k + 1}</sub>)`);
+        }
+
+        steps.push({
+          title: `Factorization Step ${k + 1} (Eliminate Column ${k + 1} of U)`,
+          description: `Store multipliers in column ${k + 1} of <span class="font-mono">L</span> and update <span class="font-mono">U</span>:<div class="mt-1.5 font-mono text-xs text-brand-700">${multLogs.join('<br>')}</div>`,
+          customHTML: `<div class="flex flex-wrap gap-6 items-center">${renderSingleMatrixHTML(L, 'L')}${renderSingleMatrixHTML(U, 'U')}</div>`
+        });
+      }
+
+      if (Math.abs(U[n - 1][n - 1]) < EPSILON) {
+        steps.push({
+          title: 'Singular Matrix Detected',
+          description: `<span class="font-mono">u<sub>${n}${n}</sub> = 0</span>, so matrix <span class="font-mono">A</span> is singular (<span class="font-mono">det(A) = 0</span>) and has no unique solution.`,
+          matrixHTML: null
+        });
+        return { status: 'none', solution: null, steps };
+      }
+
+      // Forward Substitution: L * y = b
+      const y = new Array(n).fill(0);
+      const fwdLines = [];
+      for (let i = 0; i < n; i++) {
+        let sum = b[i];
+        const parts = [`${fmtNum(b[i])}`];
+        for (let j = 0; j < i; j++) {
+          sum -= L[i][j] * y[j];
+          if (Math.abs(L[i][j]) > EPSILON) {
+            parts.push(`- (${fmtNum(L[i][j])})(${fmtNum(y[j])})`);
+          }
+        }
+        y[i] = sum;
+        fwdLines.push(`y<sub>${i + 1}</sub> = ${parts.join(' ')} = <strong class="text-indigo-700">${fmtNum(y[i])}</strong>`);
+      }
+
+      steps.push({
+        title: 'Forward Substitution (Solve L · y = b)',
+        description: `Solve for intermediate vector <span class="font-mono">y</span> from top to bottom:<div class="mt-2 font-mono text-xs bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">${fwdLines.join('<br>')}</div>`,
+        matrixHTML: null
+      });
+
+      // Back Substitution: U * x = y
+      const x = new Array(n).fill(0);
+      const backLines = [];
+      for (let i = n - 1; i >= 0; i--) {
+        let sum = y[i];
+        const parts = [`${fmtNum(y[i])}`];
+        for (let j = i + 1; j < n; j++) {
+          sum -= U[i][j] * x[j];
+          if (Math.abs(U[i][j]) > EPSILON) {
+            parts.push(`- (${fmtNum(U[i][j])})(${fmtNum(x[j])})`);
+          }
+        }
+        x[i] = sum / U[i][i];
+        if (Math.abs(x[i]) < EPSILON) x[i] = 0;
+        backLines.push(`x<sub>${i + 1}</sub> = [ ${parts.join(' ')} ] / (${fmtNum(U[i][i])}) = <strong class="text-emerald-700">${fmtNum(x[i])}</strong>`);
+      }
+
+      steps.push({
+        title: 'Back Substitution (Solve U · x = y)',
+        description: `Solve for final solution vector <span class="font-mono">x</span> from bottom to top:<div class="mt-2 font-mono text-xs bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">${backLines.join('<br>')}</div>`,
+        matrixHTML: null
+      });
+
+      return { status: 'unique', solution: x, steps };
+    }
+
+    // ============================================================================
+    // MASTER SOLVE & DISPLAY ORCHESTRATOR
+    // ============================================================================
+    function solveSystem() {
+      if (!state.isValidCondition) return;
+
+      const { A, b } = readMatrixInputs();
+      let result;
+
+      if (state.method === 'gauss') {
+        result = solveGaussElimination(A, b);
+      } else if (state.method === 'jordan') {
+        result = solveGaussJordan(A, b);
+      } else if (state.method === 'jacobi') {
+        result = solveJacobi(A, b);
+      } else if (state.method === 'lu') {
+        result = solveLUDecomposition(A, b);
+      }
+
+      state.lastResult = { A, b, result };
+      renderSolutionUI(A, b, result);
+    }
+
+    function reRenderLastSolution() {
+      if (!state.lastResult) return;
+      // Re-run solver cleanly to reformat fractions/decimals in steps
+      solveSystem();
+    }
+
+    function renderSolutionUI(A, b, result) {
+      const resultsWrapper = document.getElementById('resultsWrapper');
+      resultsWrapper.classList.remove('hidden');
+
+      const statusPill = document.getElementById('solutionStatusPill');
+      const finalContent = document.getElementById('finalSolutionContent');
+      const verificationBox = document.getElementById('verificationBox');
+      const verificationList = document.getElementById('verificationList');
+
+      // Status Pill & Final Vector Display
+      if (result.status === 'unique' || result.status === 'approx') {
+        statusPill.className = result.status === 'unique'
+          ? 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800'
+          : 'px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800';
+        statusPill.textContent = result.status === 'unique' ? 'Unique Solution' : 'Approximate (Max Iter)';
+
+        finalContent.innerHTML = result.solution.map((val, idx) => `
+          <div class="flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+            <span class="font-mono font-bold text-slate-700 text-sm">x<sub>${idx + 1}</sub></span>
+            <div class="text-right font-mono">
+              <span class="text-base font-bold text-brand-700">${fmtNum(val)}</span>
+              ${fmtNum(val) !== fmtNum(val, true) ? `<span class="text-xs text-slate-400 ml-2">(≈ ${fmtNum(val, true)})</span>` : ''}
+            </div>
+          </div>
+        `).join('');
+
+        // Verification A * x = b
+        verificationBox.classList.remove('hidden');
+        verificationList.innerHTML = A.map((row, i) => {
+          const lhs = row.reduce((acc, coeff, j) => acc + coeff * result.solution[j], 0);
+          return `<div class="flex justify-between">
+            <span>Eq ${i + 1}:</span>
+            <span>${fmtNum(lhs, true)} ≈ <strong>${fmtNum(b[i], true)}</strong></span>
+          </div>`;
+        }).join('');
+      } else {
+        statusPill.className = 'px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800';
+        statusPill.textContent = result.status === 'none' ? 'No Solution' : result.status === 'infinite' ? 'Infinite Solutions' : 'Method Halted';
+        verificationBox.classList.add('hidden');
+
+        const msg = result.errorMsg
+          || (result.status === 'none'
+            ? 'The system is inconsistent (parallel planes/lines with no common intersection).'
+            : 'The system is underdetermined and possesses infinitely many solutions.');
+        finalContent.innerHTML = `
+          <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-sm">
+            ${msg}
+          </div>
+        `;
+      }
+
+      // Render Step-by-Step Cards
+      const stepsContainer = document.getElementById('stepsContainer');
+      stepsContainer.innerHTML = result.steps.map((step, index) => `
+        <div class="relative pl-8 pb-2 border-l-2 border-indigo-200 last:border-l-0">
+          <div class="absolute -left-3 top-0 w-6 h-6 rounded-full bg-brand-600 text-white font-mono text-xs font-bold flex items-center justify-center shadow-xs">
+            ${index + 1}
+          </div>
+          <div class="bg-slate-50/60 rounded-xl p-4 border border-slate-200/80">
+            <h3 class="text-sm font-bold text-slate-900">${step.title}</h3>
+            <div class="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">${step.description}</div>
+            ${step.matrixHTML ? `<div class="mt-3">${step.matrixHTML}</div>` : ''}
+            ${step.customHTML ? `<div class="mt-3">${step.customHTML}</div>` : ''}
+          </div>
+        </div>
+      `).join('');
+
+      // Render Graphical Output (if n < 4) or Dimensionality Notice (if n >= 4)
+      renderGraphicalOutput(A, b, result.solution);
+
+      resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // ============================================================================
+    // STEP 4: GRAPHICAL OUTPUT ENGINE (2D Plot, 3D WebGL Planes, or >=4D Notice)
+    // ============================================================================
+    function cleanup3D() {
+      if (state.scene3D.animId) {
+        cancelAnimationFrame(state.scene3D.animId);
+        state.scene3D.animId = null;
+      }
+      if (state.scene3D.renderer) {
+        state.scene3D.renderer.dispose();
+        state.scene3D.renderer = null;
+      }
+    }
+
+    function renderGraphicalOutput(A, b, solution) {
+      cleanup3D();
+      const container = document.getElementById('graphViewportContainer');
+      const controls = document.getElementById('graphControls');
+      const footer = document.getElementById('graphFooter');
+      const title = document.getElementById('graphTitle');
+
+      container.innerHTML = '';
+      controls.innerHTML = '';
+      footer.innerHTML = '';
+
+      // Dimension >= 4: Display clean output notice
+      if (state.n >= 4) {
+        title.textContent = `Higher-Dimensional Space (${state.n}D)`;
+        container.innerHTML = `
+          <div class="text-center p-8 max-w-md">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-100 text-brand-700 font-mono font-bold text-lg flex items-center justify-center mx-auto mb-3">
+              ℝ<sup>${state.n}</sup>
+            </div>
+            <h3 class="text-base font-bold text-slate-800">Graphical Plot Not Available for n ≥ 4</h3>
+            <p class="text-xs text-slate-500 mt-1.5 leading-relaxed">
+              This system has <strong>${state.n} unknowns</strong>, representing hyperplanes in ${state.n}-dimensional Euclidean space (<span class="font-mono">ℝ<sup>${state.n}</sup></span>). Geometric plotting is enabled for 2D (<span class="font-mono">n = 2</span>) and 3D (<span class="font-mono">n = 3</span>) systems.
+            </p>
+          </div>
+        `;
+        return;
+      }
+
+      // Dimension == 2: Interactive 2D Cartesian Line Intersection Canvas
+      if (state.n === 2) {
+        title.textContent = '2D Cartesian Line Intersection';
+        controls.innerHTML = `
+          <button type="button" onclick="zoom2D(1.25)" class="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700">+</button>
+          <button type="button" onclick="zoom2D(0.8)" class="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700">−</button>
+          <button type="button" onclick="reset2DView()" class="px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700">Reset</button>
+        `;
+
+        const canvas = document.createElement('canvas');
+        canvas.id = 'canvas2D';
+        canvas.className = 'w-full h-[360px] cursor-grab active:cursor-grabbing block';
+        container.appendChild(canvas);
+
+        // Center camera on solution if available
+        if (solution && isFinite(solution[0]) && isFinite(solution[1])) {
+          state.plot2D.offsetX = -solution[0];
+          state.plot2D.offsetY = -solution[1];
+          const maxCoord = Math.max(Math.abs(solution[0]), Math.abs(solution[1]), 4);
+          state.plot2D.scale = Math.max(18, Math.min(55, 140 / maxCoord));
+        } else {
+          state.plot2D.offsetX = 0;
+          state.plot2D.offsetY = 0;
+          state.plot2D.scale = 35;
+        }
+
+        setup2DCanvasEvents(canvas, A, b, solution);
+        draw2DPlot(canvas, A, b, solution);
+
+        // Legend
+        const legendItems = A.map((row, idx) => `
+          <span class="inline-flex items-center gap-1.5">
+            <span class="w-3 h-1 rounded-full" style="background:${EQUATION_COLORS[idx % EQUATION_COLORS.length]}"></span>
+            <span class="font-mono">${fmtNum(row[0])}x₁ + ${fmtNum(row[1])}x₂ = ${fmtNum(b[idx])}</span>
+          </span>
+        `).join('');
+        footer.innerHTML = `<div class="flex flex-wrap gap-3">${legendItems}</div><span>Drag to pan • Scroll or +/- to zoom</span>`;
+        return;
+      }
+
+      // Dimension == 3: Interactive 3D Plane Intersection (Three.js)
+      if (state.n === 3) {
+        title.textContent = '3D Plane Intersection (WebGL)';
+        controls.innerHTML = `
+          <button type="button" onclick="reset3DCamera()" class="px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700">Reset Camera</button>
+        `;
+        init3DPlanePlot(container, A, b, solution);
+
+        const legendItems = A.map((row, idx) => `
+          <span class="inline-flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-xs" style="background:${EQUATION_COLORS[idx % EQUATION_COLORS.length]}"></span>
+            <span class="font-mono">Plane ${idx + 1}</span>
+          </span>
+        `).join('');
+        footer.innerHTML = `<div class="flex flex-wrap gap-3">${legendItems}</div><span>Drag to rotate 3D space • Scroll to zoom</span>`;
+      }
+    }
+
+    // ============================================================================
+    // 2D CANVAS RENDERING & INTERACTION
+    // ============================================================================
+    function setup2DCanvasEvents(canvas, A, b, solution) {
+      const redraw = () => draw2DPlot(canvas, A, b, solution);
+
+      canvas.addEventListener('mousedown', e => {
+        state.plot2D.isDragging = true;
+        state.plot2D.lastX = e.clientX;
+        state.plot2D.lastY = e.clientY;
+      });
+      window.addEventListener('mouseup', () => { state.plot2D.isDragging = false; });
+      canvas.addEventListener('mousemove', e => {
+        if (!state.plot2D.isDragging) return;
+        const dx = e.clientX - state.plot2D.lastX;
+        const dy = e.clientY - state.plot2D.lastY;
+        state.plot2D.offsetX += dx / state.plot2D.scale;
+        state.plot2D.offsetY -= dy / state.plot2D.scale;
+        state.plot2D.lastX = e.clientX;
+        state.plot2D.lastY = e.clientY;
+        redraw();
+      });
+
+      canvas.addEventListener('wheel', e => {
+        e.preventDefault();
+        const factor = e.deltaY < 0 ? 1.12 : 0.88;
+        state.plot2D.scale = Math.max(8, Math.min(200, state.plot2D.scale * factor));
+        redraw();
+      }, { passive: false });
+
+      window.addEventListener('resize', redraw);
+    }
+
+    function zoom2D(factor) {
+      const canvas = document.getElementById('canvas2D');
+      if (!canvas || !state.lastResult) return;
+      state.plot2D.scale = Math.max(8, Math.min(200, state.plot2D.scale * factor));
+      draw2DPlot(canvas, state.lastResult.A, state.lastResult.b, state.lastResult.result.solution);
+    }
+
+    function reset2DView() {
+      const canvas = document.getElementById('canvas2D');
+      if (!canvas || !state.lastResult) return;
+      const sol = state.lastResult.result.solution;
+      state.plot2D.offsetX = sol ? -sol[0] : 0;
+      state.plot2D.offsetY = sol ? -sol[1] : 0;
+      state.plot2D.scale = 38;
+      draw2DPlot(canvas, state.lastResult.A, state.lastResult.b, sol);
+    }
+
+    function draw2DPlot(canvas, A, b, solution) {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0) return;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      const w = rect.width;
+      const h = rect.height;
+
+      const scale = state.plot2D.scale;
+      const cx = w / 2 + state.plot2D.offsetX * scale;
+      const cy = h / 2 - state.plot2D.offsetY * scale;
+
+      // Clear background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+
+      // Grid spacing adaptive
+      const stepUnits = scale > 60 ? 0.5 : scale > 25 ? 1 : scale > 12 ? 2 : 5;
+      const startX = Math.floor((-cx / scale) / stepUnits) * stepUnits;
+      const endX = Math.ceil(((w - cx) / scale) / stepUnits) * stepUnits;
+      const startY = Math.floor(((cy - h) / scale) / stepUnits) * stepUnits;
+      const endY = Math.ceil((cy / scale) / stepUnits) * stepUnits;
+
+      // Minor Gridlines
+      ctx.strokeStyle = '#f1f5f9';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let gx = startX; gx <= endX; gx += stepUnits) {
+        const px = cx + gx * scale;
+        ctx.moveTo(px, 0);
+        ctx.lineTo(px, h);
+      }
+      for (let gy = startY; gy <= endY; gy += stepUnits) {
+        const py = cy - gy * scale;
+        ctx.moveTo(0, py);
+        ctx.lineTo(w, py);
+      }
+      ctx.stroke();
+
+      // Main X and Y Axes
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, cy);
+      ctx.lineTo(w, cy);
+      ctx.moveTo(cx, 0);
+      ctx.lineTo(cx, h);
+      ctx.stroke();
+
+      // Axis Tick Labels
+      ctx.fillStyle = '#64748b';
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      for (let gx = startX; gx <= endX; gx += stepUnits) {
+        if (Math.abs(gx) < 1e-6) continue;
+        const px = cx + gx * scale;
+        ctx.fillText(Number(gx.toFixed(2)), px, Math.min(Math.max(cy + 13, 12), h - 4));
+      }
+      ctx.textAlign = 'right';
+      for (let gy = startY; gy <= endY; gy += stepUnits) {
+        if (Math.abs(gy) < 1e-6) continue;
+        const py = cy - gy * scale;
+        ctx.fillText(Number(gy.toFixed(2)), Math.min(Math.max(cx - 5, 22), w - 4), py + 3);
+      }
+      ctx.fillStyle = '#334155';
+      ctx.font = 'bold 11px Inter, sans-serif';
+      ctx.fillText('x₁', w - 10, Math.min(Math.max(cy - 6, 14), h - 10));
+      ctx.fillText('x₂', Math.min(Math.max(cx + 18, 22), w - 6), 14);
+
+      // Draw each equation line: a1*x1 + a2*x2 = b
+      const xMinWorld = -cx / scale - 2;
+      const xMaxWorld = (w - cx) / scale + 2;
+      const yMinWorld = (cy - h) / scale - 2;
+      const yMaxWorld = cy / scale + 2;
+
+      A.forEach((row, idx) => {
+        const a1 = row[0];
+        const a2 = row[1];
+        const rhs = b[idx];
+        const color = EQUATION_COLORS[idx % EQUATION_COLORS.length];
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+
+        if (Math.abs(a2) > EPSILON) {
+          const y1 = (rhs - a1 * xMinWorld) / a2;
+          const y2 = (rhs - a1 * xMaxWorld) / a2;
+          ctx.moveTo(cx + xMinWorld * scale, cy - y1 * scale);
+          ctx.lineTo(cx + xMaxWorld * scale, cy - y2 * scale);
+        } else if (Math.abs(a1) > EPSILON) {
+          const xConst = rhs / a1;
+          ctx.moveTo(cx + xConst * scale, cy - yMinWorld * scale);
+          ctx.lineTo(cx + xConst * scale, cy - yMaxWorld * scale);
+        }
+        ctx.stroke();
+      });
+
+      // Highlight Solution Intersection Point
+      if (solution && isFinite(solution[0]) && isFinite(solution[1])) {
+        const sx = cx + solution[0] * scale;
+        const sy = cy - solution[1] * scale;
+
+        // Dashed projection lines to axes
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx, cy);
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(cx, sy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Glowing marker dot
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.25)';
+        ctx.beginPath();
+        ctx.arc(sx, sy, 11, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#059669';
+        ctx.beginPath();
+        ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Coordinate callout badge
+        const label = `(${fmtNum(solution[0])}, ${fmtNum(solution[1])})`;
+        ctx.font = 'bold 11px JetBrains Mono, monospace';
+        const textWidth = ctx.measureText(label).width;
+        const boxX = Math.min(sx + 10, w - textWidth - 16);
+        const boxY = Math.max(sy - 26, 10);
+
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, textWidth + 12, 20, 6);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'left';
+        ctx.fillText(label, boxX + 6, boxY + 14);
+      }
+    }
+
+    // ============================================================================
+    // 3D THREE.JS PLANE INTERSECTION VISUALIZATION
+    // ============================================================================
+    function init3DPlanePlot(container, A, b, solution) {
+      const width = container.clientWidth || 500;
+      const height = 360;
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xf8fafc);
+
+      const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(window.devicePixelRatio || 1);
+      container.appendChild(renderer.domElement);
+
+      state.scene3D.scene = scene;
+      state.scene3D.camera = camera;
+      state.scene3D.renderer = renderer;
+
+      // Center point (either solution or origin)
+      const center = (solution && solution.length === 3 && solution.every(isFinite))
+        ? new THREE.Vector3(solution[0], solution[1], solution[2])
+        : new THREE.Vector3(0, 0, 0);
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+      scene.add(ambientLight);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+      dirLight.position.set(10, 20, 15);
+      scene.add(dirLight);
+
+      // Grid & Axes Helper centered around origin
+      const gridHelper = new THREE.GridHelper(16, 16, 0xcbd5e1, 0xe2e8f0);
+      scene.add(gridHelper);
+      const axesHelper = new THREE.AxesHelper(8);
+      scene.add(axesHelper);
+
+      // Render each plane a*x + b*y + c*z = d
+      const planeSize = 9;
+      A.forEach((row, idx) => {
+        const normal = new THREE.Vector3(row[0], row[1], row[2]);
+        const normLen = normal.length();
+        if (normLen < EPSILON) return;
+
+        const unitNormal = normal.clone().divideScalar(normLen);
+        const distance = b[idx] / normLen;
+
+        // Point on plane closest to center
+        const centerDist = unitNormal.dot(center) - distance;
+        const planeOrigin = center.clone().sub(unitNormal.clone().multiplyScalar(centerDist));
+
+        const geom = new THREE.PlaneGeometry(planeSize, planeSize);
+        const mat = new THREE.MeshPhongMaterial({
+          color: new THREE.Color(EQUATION_COLORS[idx % EQUATION_COLORS.length]),
+          transparent: true,
+          opacity: 0.38,
+          side: THREE.DoubleSide,
+          depthWrite: false
+        });
+        const mesh = new THREE.Mesh(geom, mat);
+
+        // Orient plane to face unitNormal
+        const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), unitNormal);
+        mesh.quaternion.copy(quaternion);
+        mesh.position.copy(planeOrigin);
+        scene.add(mesh);
+
+        // Wireframe border around plane for crispness
+        const edges = new THREE.EdgesGeometry(geom);
+        const lineMat = new THREE.LineBasicMaterial({ color: EQUATION_COLORS[idx % EQUATION_COLORS.length], opacity: 0.85, transparent: true });
+        const wire = new THREE.LineSegments(edges, lineMat);
+        wire.quaternion.copy(quaternion);
+        wire.position.copy(planeOrigin);
+        scene.add(wire);
+      });
+
+      // Plot Intersection Point Sphere if unique solution exists
+      if (solution && solution.length === 3 && solution.every(isFinite)) {
+        const sphereGeom = new THREE.SphereGeometry(0.28, 24, 24);
+        const sphereMat = new THREE.MeshStandardMaterial({
+          color: 0x10b981,
+          emissive: 0x059669,
+          emissiveIntensity: 0.4
+        });
+        const sphere = new THREE.Mesh(sphereGeom, sphereMat);
+        sphere.position.copy(center);
+        scene.add(sphere);
+
+        // Outer halo
+        const haloGeom = new THREE.SphereGeometry(0.45, 24, 24);
+        const haloMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.25 });
+        const halo = new THREE.Mesh(haloGeom, haloMat);
+        halo.position.copy(center);
+        scene.add(halo);
+      }
+
+      // Orbit Camera Controls via Mouse/Touch
+      state.scene3D.spherical = { radius: 15, theta: Math.PI / 4, phi: Math.PI / 3 };
+      const updateCamera = () => {
+        const { radius, theta, phi } = state.scene3D.spherical;
+        camera.position.x = center.x + radius * Math.sin(phi) * Math.cos(theta);
+        camera.position.y = center.y + radius * Math.cos(phi);
+        camera.position.z = center.z + radius * Math.sin(phi) * Math.sin(theta);
+        camera.lookAt(center);
+      };
+      updateCamera();
+      state.scene3D.updateCamera = updateCamera;
+
+      const domElem = renderer.domElement;
+      domElem.addEventListener('mousedown', e => {
+        state.scene3D.isDragging = true;
+        state.scene3D.prevMouse = { x: e.clientX, y: e.clientY };
+      });
+      window.addEventListener('mouseup', () => { state.scene3D.isDragging = false; });
+      domElem.addEventListener('mousemove', e => {
+        if (!state.scene3D.isDragging) return;
+        const dx = e.clientX - state.scene3D.prevMouse.x;
+        const dy = e.clientY - state.scene3D.prevMouse.y;
+        state.scene3D.spherical.theta += dx * 0.01;
+        state.scene3D.spherical.phi = Math.max(0.15, Math.min(Math.PI - 0.15, state.scene3D.spherical.phi - dy * 0.01));
+        state.scene3D.prevMouse = { x: e.clientX, y: e.clientY };
+        updateCamera();
+      });
+      domElem.addEventListener('wheel', e => {
+        e.preventDefault();
+        state.scene3D.spherical.radius = Math.max(5, Math.min(40, state.scene3D.spherical.radius + e.deltaY * 0.015));
+        updateCamera();
+      }, { passive: false });
+
+      // Touch drag support for 3D
+      domElem.addEventListener('touchstart', e => {
+        if (e.touches.length === 1) {
+          state.scene3D.isDragging = true;
+          state.scene3D.prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }
+      }, { passive: true });
+      domElem.addEventListener('touchmove', e => {
+        if (!state.scene3D.isDragging || e.touches.length !== 1) return;
+        const dx = e.touches[0].clientX - state.scene3D.prevMouse.x;
+        const dy = e.touches[0].clientY - state.scene3D.prevMouse.y;
+        state.scene3D.spherical.theta += dx * 0.01;
+        state.scene3D.spherical.phi = Math.max(0.15, Math.min(Math.PI - 0.15, state.scene3D.spherical.phi - dy * 0.01));
+        state.scene3D.prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        updateCamera();
+      }, { passive: true });
+      domElem.addEventListener('touchend', () => { state.scene3D.isDragging = false; });
+
+      function animate3D() {
+        state.scene3D.animId = requestAnimationFrame(animate3D);
+        renderer.render(scene, camera);
+      }
+      animate3D();
+    }
+
+    function reset3DCamera() {
+      if (!state.scene3D.updateCamera) return;
+      state.scene3D.spherical = { radius: 15, theta: Math.PI / 4, phi: Math.PI / 3 };
+      state.scene3D.updateCamera();
+    }
+
+    // ============================================================================
+    // INITIALIZE ON WINDOW LOAD
+    // ============================================================================
+    window.onload = function () {
+      selectMethod('gauss');
+      validateAndBuildEquations(true);
+    };
+  </script>
+</body>
+</html>
